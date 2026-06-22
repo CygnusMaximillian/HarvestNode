@@ -1,7 +1,6 @@
 import hmac
 import hashlib
 import base64
-from urllib.parse import urlencode
 
 from fastapi import Request, HTTPException
 from app.core.config import settings
@@ -11,31 +10,34 @@ async def verify_twilio_signature(request: Request) -> None:
     """
     FastAPI dependency that validates the X-Twilio-Signature header.
 
-    In development mode (no TWILIO_AUTH_TOKEN set) validation is skipped.
-    In production, a forged or missing signature results in a 403 response.
+    Twilio's algorithm (https://www.twilio.com/docs/usage/security):
+      1. Take the full request URL.
+      2. Sort POST params alphabetically by key.
+      3. Append each key+value pair (no delimiters) directly to the URL string.
+      4. HMAC-SHA1 sign with the AuthToken, then base64-encode.
 
-    Ref: https://www.twilio.com/docs/usage/security#validating-signatures-from-twilio
+    In development (no TWILIO_AUTH_TOKEN set) validation is skipped.
+    In production a missing or invalid signature returns HTTP 403.
     """
     if not settings.TWILIO_AUTH_TOKEN:
-        # Dev / mock mode — skip validation
-        return
+        return  # Dev / mock mode — skip validation
 
     signature = request.headers.get("X-Twilio-Signature", "")
     if not signature:
-        raise HTTPException(status_code=403, detail="Missing Twilio signature.")
+        raise HTTPException(status_code=403, detail="Missing X-Twilio-Signature header.")
 
-    # Reconstruct the full URL Twilio signed
+    # Full URL Twilio used when sending the request
     url = str(request.url)
 
-    # Collect POST params sorted alphabetically and appended to URL
+    # Sort POST params alphabetically and concatenate key+value with NO separators
     form_data = await request.form()
-    sorted_params = urlencode(sorted(form_data.items()))
-    signed_url = url + sorted_params
+    sorted_concat = "".join(k + v for k, v in sorted(form_data.multi_items()))
+    signed_string = url + sorted_concat
 
-    # Compute expected signature: HMAC-SHA1 of url+params, keyed by auth token, base64-encoded
+    # HMAC-SHA1, keyed by AuthToken, base64-encoded
     mac = hmac.new(
         settings.TWILIO_AUTH_TOKEN.encode("utf-8"),
-        signed_url.encode("utf-8"),
+        signed_string.encode("utf-8"),
         hashlib.sha1,
     )
     expected = base64.b64encode(mac.digest()).decode("utf-8")
