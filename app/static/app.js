@@ -105,31 +105,31 @@ document.addEventListener('DOMContentLoaded', () => {
     const body = document.querySelector('#visionCard .card-body');
     const confidencePct = (v.confidence * 100).toFixed(0);
     const barColor = confidencePct >= 80 ? '#22c55e' : confidencePct >= 50 ? '#eab308' : '#ef4444';
-    body.innerHTML = 
+    body.innerHTML = `
       <div class="label">Crop</div>
-      <div class="value"></div>
+      <div class="value">${v.crop}</div>
       <div class="label">Disease</div>
-      <div class="value" style="color:#fca5a5"></div>
+      <div class="value" style="color:#fca5a5">${v.disease}</div>
       <div class="label">Confidence</div>
-      <div class="value" style="font-weight:600">%</div>
+      <div class="value" style="font-weight:600">${confidencePct}%</div>
       <div class="confidence-bar">
-        <div class="confidence-fill" style="width:%;background:"></div>
+        <div class="confidence-fill" style="width:${confidencePct}%;background:${barColor}"></div>
       </div>
       <div class="label">Symptoms</div>
-      <div class="value" style="color:#94a3b8;font-size:0.9rem"></div>
-    ;
+      <div class="value" style="color:#94a3b8;font-size:0.9rem">${v.summary}</div>
+    `;
   }
 
   function renderWeather(w) {
     const body = document.querySelector('#weatherCard .card-body');
-    body.innerHTML = 
+    body.innerHTML = `
       <div class="label">Temperature</div>
-      <div class="value" style="font-size:1.3rem;font-weight:700"></div>
+      <div class="value" style="font-size:1.3rem;font-weight:700">${w.temperature}</div>
       <div class="label">Humidity</div>
-      <div class="value"></div>
+      <div class="value">${w.humidity}</div>
       <div class="label">Forecast</div>
-      <div class="value" style="text-transform:capitalize"></div>
-    ;
+      <div class="value" style="text-transform:capitalize">${w.rain_forecast}</div>
+    `;
   }
 
   function renderMarket(m) {
@@ -139,14 +139,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const trendIcon = m.trend === 'increasing' ? '\u2191' : m.trend === 'decreasing' ? '\u2193' : '\u2192';
 
     const body = document.querySelector('#marketCard .card-body');
-    body.innerHTML = 
+    body.innerHTML = `
       <div class="label">Crop</div>
-      <div class="value"></div>
+      <div class="value">${m.crop}</div>
       <div class="label">Current Price</div>
-      <div class="value" style="font-size:1.3rem;font-weight:700;color:#22c55e"></div>
+      <div class="value" style="font-size:1.3rem;font-weight:700;color:#22c55e">${m.current_price}</div>
       <div class="label">Trend</div>
-      <div class="value"><span class="tag "> </span></div>
-    ;
+      <div class="value"><span class="tag ${trendClass}">${trendIcon} ${m.trend}</span></div>
+    `;
   }
 
   function renderRecommendation(r) {

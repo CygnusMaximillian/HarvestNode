@@ -17,7 +17,8 @@ def _get_openai_client() -> AsyncOpenAI:
 
 async def _encode_image_from_url(image_url: str, account_sid: str | None, auth_token: str | None) -> str:
     """Download image and return base64 string. Tries Twilio auth first, then no-auth."""
-    async with httpx.AsyncClient(timeout=30) as client:
+    headers = {"User-Agent": "Mozilla/5.0"}
+    async with httpx.AsyncClient(timeout=30, headers=headers) as client:
         try:
             if account_sid and auth_token:
                 response = await client.get(image_url, auth=(account_sid, auth_token))
@@ -36,9 +37,9 @@ async def diagnose_image(image_url: str) -> VisionResponse:
         # Mock response when no API key is configured
         return VisionResponse(
             crop="Tomato",
-            disease="Early Blight (Mock)",
-            confidence=0.85,
-            summary="Mock diagnosis: early blight detected on lower leaves. Treat promptly.",
+            disease="Healthy",
+            confidence=0.95,
+            summary="Mock diagnosis: The plant appears healthy. Continue normal care.",
         )
 
     base64_image = await _encode_image_from_url(
