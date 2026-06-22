@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Request, Form
+from fastapi import APIRouter, Depends, Form
 from sqlalchemy.orm import Session
 
 from app.core.security import verify_twilio_signature
@@ -23,7 +23,6 @@ RATE_LIMIT_SECONDS = 60
 
 @router.post("/webhook/whatsapp", dependencies=[Depends(verify_twilio_signature)])
 async def whatsapp_webhook(
-    request: Request,
     From: str = Form(...),
     NumMedia: str = Form("0"),
     MediaUrl0: Optional[str] = Form(None),

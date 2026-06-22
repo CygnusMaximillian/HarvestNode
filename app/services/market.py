@@ -1,5 +1,8 @@
+import logging
 import httpx
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 # Mapping common crop names to World Bank commodity indicator codes
 # Ref: https://api.worldbank.org/v2/en/indicator/
@@ -67,7 +70,7 @@ async def get_market_info(crop_name: str) -> dict:
                     "trend": "unknown",
                 }
         except Exception as e:
-            print(f"World Bank market API error for {crop_name}: {e}")
+            logger.error(f"World Bank market API error for {crop_name}: {e}")
 
     # Fallback to static estimates
     fallback = _STATIC_FALLBACK.get(crop_name, _DEFAULT_FALLBACK)

@@ -1,6 +1,9 @@
+import logging
 import httpx
 import base64
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 async def send_whatsapp_message(to_number: str, message: str) -> str | None:
@@ -9,7 +12,7 @@ async def send_whatsapp_message(to_number: str, message: str) -> str | None:
     Falls back to console logging when credentials are not configured.
     """
     if not settings.TWILIO_ACCOUNT_SID or not settings.TWILIO_AUTH_TOKEN:
-        print(f"[Mock WhatsApp → {to_number}]\n{message}\n{'─' * 60}")
+        logger.info(f"[Mock WhatsApp -> {to_number}]\n{message}")
         return None
 
     # Ensure the whatsapp: prefix is present

@@ -1,5 +1,8 @@
+import logging
 import httpx
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 _MOCK_WEATHER = {
     "temperature": "25°C",
@@ -39,5 +42,5 @@ async def get_weather(lat: float, lon: float) -> dict:
             "rain_forecast": weather_desc,
         }
     except Exception as e:
-        print(f"Weather API error: {e}")
+        logger.error(f"Weather API error: {e}")
         return _WEATHER_ERROR
