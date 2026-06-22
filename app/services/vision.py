@@ -1,56 +1,83 @@
 import base64
 import json
-import requests
-from openai import OpenAI
+import httpx
+from openai import AsyncOpenAI
 from app.core.config import settings
 from app.schemas.schemas import VisionResponse
 
-client = OpenAI(api_key=settings.OPENAI_API_KEY)
+_client: AsyncOpenAI | None = None
 
-def encode_image_from_url(image_url: str) -> str:
-    try:
-        # If it's a Twilio URL, we might need auth.
-        response = requests.get(image_url, auth=(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN))
+
+def _get_openai_client() -> AsyncOpenAI:
+    global _client
+    if _client is None:
+        _client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+    return _client
+
+
+async def _encode_image_from_url(image_url: str, account_sid: str | None, auth_token: str | None) -> str:
+    """Download image and return base64 string. Tries Twilio auth first, then no-auth."""
+    headers = {"User-Agent": "Mozilla/5.0"}
+    async with httpx.AsyncClient(timeout=30, headers=headers) as client:
+        try:
+            if account_sid and auth_token:
+                response = await client.get(image_url, auth=(account_sid, auth_token))
+                response.raise_for_status()
+                return base64.b64encode(response.content).decode("utf-8")
+        except Exception:
+            pass  # fall through to no-auth
+        response = await client.get(image_url)
         response.raise_for_status()
-        return base64.b64encode(response.content).decode('utf-8')
-    except Exception as e:
-        print(f"Failed to download image with auth: {e}")
-        # fallback to no auth
-        response = requests.get(image_url)
-        if response.status_code == 200:
-            return base64.b64encode(response.content).decode('utf-8')
-        raise
+        return base64.b64encode(response.content).decode("utf-8")
 
-def diagnose_image(image_url: str) -> VisionResponse:
-    base64_image = encode_image_from_url(image_url)
-    
-    response = client.chat.completions.create(
+
+async def diagnose_image(image_url: str) -> VisionResponse:
+    """Diagnose a crop image using GPT-4o Vision. Returns crop name, disease, confidence, and summary."""
+    if not settings.OPENAI_API_KEY:
+        # Mock response when no API key is configured
+        return VisionResponse(
+            crop="Tomato",
+            disease="Healthy",
+            confidence=0.95,
+            summary="Mock diagnosis: The plant appears healthy. Continue normal care.",
+        )
+
+    base64_image = await _encode_image_from_url(
+        image_url, settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN
+    )
+
+    openai_client = _get_openai_client()
+    response = await openai_client.chat.completions.create(
         model="gpt-4o",
-        response_format={ "type": "json_object" },
+        response_format={"type": "json_object"},
         messages=[
             {
                 "role": "system",
-                "content": "You are an agricultural expert. Analyze the crop image and diagnose any disease. Respond ONLY in JSON format with exactly three keys: 'disease' (string), 'confidence' (float between 0 and 1), and 'summary' (string explaining symptoms)."
+                "content": (
+                    "You are an expert agricultural plant pathologist. "
+                    "Analyze the crop image and respond ONLY in JSON with exactly four keys: "
+                    "'crop' (string: the crop plant species, e.g. 'Tomato', 'Wheat', 'Rice', 'Maize'), "
+                    "'disease' (string: the detected disease or 'Healthy' if no disease), "
+                    "'confidence' (float 0.0–1.0: your confidence in the diagnosis), "
+                    "'summary' (string: concise explanation of visible symptoms, max 60 words)."
+                ),
             },
             {
                 "role": "user",
                 "content": [
                     {
                         "type": "image_url",
-                        "image_url": {
-                            "url": f"data:image/jpeg;base64,{base64_image}"
-                        }
+                        "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"},
                     }
-                ]
-            }
-        ]
+                ],
+            },
+        ],
     )
-    
-    content = response.choices[0].message.content
-    data = json.loads(content)
-    
+
+    data = json.loads(response.choices[0].message.content)
     return VisionResponse(
+        crop=data.get("crop", "Unknown"),
         disease=data.get("disease", "Unknown"),
         confidence=float(data.get("confidence", 0.0)),
-        summary=data.get("summary", "No summary provided.")
+        summary=data.get("summary", "No summary provided."),
     )
